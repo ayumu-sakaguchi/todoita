@@ -290,7 +290,21 @@
   <div class="footnote">todoita · v0 prototype</div>
 </div>
 
+<div id="debugError" style="display:none; position:fixed; bottom:0; left:0; right:0; background:#c0392b; color:#fff; font-size:11px; padding:10px; z-index:9999; white-space:pre-wrap; line-height:1.5;"></div>
+
 <script>
+/* --- 一時的なデバッグ表示: 原因特定のため、エラー内容を画面上に直接表示する --- */
+window.addEventListener('error', (e) => {
+  const box = document.getElementById('debugError');
+  box.style.display = 'block';
+  box.textContent = 'JSエラー: ' + e.message + '\n(' + e.filename + ':' + e.lineno + ')';
+});
+window.addEventListener('unhandledrejection', (e) => {
+  const box = document.getElementById('debugError');
+  box.style.display = 'block';
+  box.textContent = '未処理のPromiseエラー: ' + (e.reason && e.reason.message ? e.reason.message : String(e.reason));
+});
+
 /* =========================================================
    注意: このタイマー(5秒)は広告視聴の"仮の導線"です。
    実際は30秒の動画リワード広告SDKのコールバックに置き換えます。
