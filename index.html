@@ -66,61 +66,15 @@
     to { opacity: 1; transform: translateY(0); }
   }
 
-  /* --- 封筒モチーフ(サイン要素) --- */
-  .envelope-wrap {
+  /* --- 封筒アイコン(静的表示) --- */
+  .envelope-icon {
     width: 132px;
-    height: 96px;
     margin-bottom: 28px;
-    position: relative;
-    perspective: 500px;
   }
-  .envelope-body {
-    position: absolute;
-    inset: 0;
-    background: var(--bg-panel-soft);
-    border: 1px solid var(--border-soft);
-    border-radius: 8px;
-  }
-  .envelope-flap {
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 60%;
-    background: var(--bg-panel);
-    border: 1px solid var(--border-soft);
-    border-radius: 8px 8px 0 0;
-    clip-path: polygon(0 0, 100% 0, 50% 62%);
-    transform-origin: top center;
-    transform-style: preserve-3d;
-    backface-visibility: hidden;
-    transition: transform 0.6s cubic-bezier(.4,0,.2,1);
-  }
-  .envelope-wrap.open .envelope-flap {
-    transform: rotateX(150deg);
-  }
-  .envelope-glow {
-    position: absolute;
-    inset: -20px;
-    border-radius: 50%;
-    background: radial-gradient(circle, var(--accent-warm-dim), transparent 70%);
-    opacity: 0;
-    transition: opacity 0.8s ease;
-  }
-  .envelope-wrap.open .envelope-glow { opacity: 1; }
-  .envelope-letter {
-    position: absolute;
-    left: 50%;
-    bottom: 8px;
-    width: 78%;
-    height: 44px;
-    background: var(--accent-warm);
-    border-radius: 4px;
-    transform: translate(-50%, 0);
-    opacity: 0;
-    transition: transform 0.6s cubic-bezier(.2,.8,.2,1) 0.25s, opacity 0.4s ease 0.25s;
-  }
-  .envelope-wrap.open .envelope-letter {
-    transform: translate(-50%, -58px);
-    opacity: 1;
+  .envelope-icon svg {
+    width: 100%;
+    height: auto;
+    display: block;
   }
 
   h1.logo {
@@ -237,11 +191,12 @@
 
   <!-- 1. ホーム画面 -->
   <section class="screen active" id="screen-home">
-    <div class="envelope-wrap" id="homeEnvelope">
-      <div class="envelope-glow"></div>
-      <div class="envelope-body"></div>
-      <div class="envelope-letter"></div>
-      <div class="envelope-flap"></div>
+    <div class="envelope-icon">
+      <svg viewBox="0 0 160 110" xmlns="http://www.w3.org/2000/svg">
+        <rect x="8" y="20" width="144" height="82" rx="8" fill="#2E3560" stroke="#3C4370"/>
+        <path d="M8 24 L80 72 L152 24" fill="none" stroke="#3C4370" stroke-width="2"/>
+        <path d="M8 20 L80 65 L152 20 L152 26 L80 71 L8 26 Z" fill="#262B4E" stroke="#3C4370"/>
+      </svg>
     </div>
     <h1 class="logo">トドイタ</h1>
     <p class="lede">
@@ -263,11 +218,12 @@
 
   <!-- 3. メッセージ画面 -->
   <section class="screen" id="screen-message">
-    <div class="envelope-wrap" id="messageEnvelope" style="margin-bottom:20px;">
-      <div class="envelope-glow"></div>
-      <div class="envelope-body"></div>
-      <div class="envelope-letter"></div>
-      <div class="envelope-flap"></div>
+    <div class="envelope-icon" style="margin-bottom:20px;">
+      <svg viewBox="0 0 160 120" xmlns="http://www.w3.org/2000/svg">
+        <path d="M15 55 L80 5 L145 55" fill="none" stroke="#3C4370" stroke-width="2"/>
+        <rect x="40" y="15" width="80" height="55" rx="4" fill="#F2A65A"/>
+        <rect x="8" y="55" width="144" height="55" rx="8" fill="#2E3560" stroke="#3C4370"/>
+      </svg>
     </div>
     <div class="message-card">
       <div class="message-text" id="messageText"></div>
@@ -379,7 +335,20 @@ function showMessage() {
   document.getElementById('messageTag').textContent =
     axis === 'A' ? `累計 ${n} 件の「ありがとう」` : axis === 'B' ? '開発者より' : '';
 
+  // 封筒を毎回「閉」状態にリセットしてから画面を表示し、
+  // 少し遅れて open クラスを付けることで開封アニメーションを発火させる
+  const envelope = document.getElementById('messageEnvelope');
+  envelope.classList.remove('open');
+
   showScreen('screen-message');
+
+  // リフローを挟んでからクラスを付けないとブラウザがtransitionを飛ばすことがあるため、
+  // 二重rAFで確実に「閉→開」の変化として認識させる
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      envelope.classList.add('open');
+    });
+  });
 }
 
 function goHome() {
