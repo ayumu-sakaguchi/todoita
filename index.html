@@ -272,22 +272,40 @@ function pickWeightedAxis() {
   return 'B';
 }
 
+// localStorageが使えない環境(プライベートモード、Cookie全ブロック設定など)でも
+// エラーで処理が止まらないよう、失敗時はメモリ上の値にフォールバックする
+const memoryStore = {};
+function safeGet(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch (e) {
+    return key in memoryStore ? memoryStore[key] : null;
+  }
+}
+function safeSet(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch (e) {
+    memoryStore[key] = String(value);
+  }
+}
+
 function getLastShown() {
-  return localStorage.getItem('todoita_last_shown') || '';
+  return safeGet('todoita_last_shown') || '';
 }
 function setLastShown(id) {
-  localStorage.setItem('todoita_last_shown', id);
+  safeSet('todoita_last_shown', id);
 }
 
 function getCount() {
-  let n = localStorage.getItem('todoita_count');
+  let n = safeGet('todoita_count');
   if (n === null) {
     n = 80 + Math.floor(Math.random() * 70); // 初回のみ、それらしい基準値を設定
   } else {
     n = parseInt(n, 10);
   }
   n += 1;
-  localStorage.setItem('todoita_count', n);
+  safeSet('todoita_count', n);
   return n;
 }
 
@@ -335,20 +353,7 @@ function showMessage() {
   document.getElementById('messageTag').textContent =
     axis === 'A' ? `累計 ${n} 件の「ありがとう」` : axis === 'B' ? '開発者より' : '';
 
-  // 封筒を毎回「閉」状態にリセットしてから画面を表示し、
-  // 少し遅れて open クラスを付けることで開封アニメーションを発火させる
-  const envelope = document.getElementById('messageEnvelope');
-  envelope.classList.remove('open');
-
   showScreen('screen-message');
-
-  // リフローを挟んでからクラスを付けないとブラウザがtransitionを飛ばすことがあるため、
-  // 二重rAFで確実に「閉→開」の変化として認識させる
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      envelope.classList.add('open');
-    });
-  });
 }
 
 function goHome() {
