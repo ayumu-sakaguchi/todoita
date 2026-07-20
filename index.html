@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>トドイタ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Maru+Gothic:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-deep: #1F2444;
+    --bg-panel: #262B4E;
+    --bg-panel-soft: #2E3560;
+    --accent-warm: #F2A65A;
+    --accent-warm-dim: rgba(242, 166, 90, 0.18);
+    --text-primary: #F5EFE0;
+    --text-muted: #9AA0C4;
+    --border-soft: #3C4370;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    background: var(--bg-deep);
+    background-image:
+      radial-gradient(ellipse at 50% -10%, rgba(242,166,90,0.08), transparent 55%);
+    color: var(--text-primary);
+    font-family: 'Zen Maru Gothic', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .stage {
+    width: 100%;
+    max-width: 420px;
+    min-height: 560px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  .screen {
+    width: 100%;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    animation: fadeUp 0.5s ease;
+  }
+  .screen.active { display: flex; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* --- 封筒モチーフ(サイン要素) --- */
+  .envelope-wrap {
+    width: 132px;
+    height: 96px;
+    margin-bottom: 28px;
+    position: relative;
+  }
+  .envelope-body {
+    position: absolute;
+    inset: 0;
+    background: var(--bg-panel-soft);
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+  }
+  .envelope-flap {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 60%;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-soft);
+    border-radius: 8px 8px 0 0;
+    clip-path: polygon(0 0, 100% 0, 50% 62%);
+    transform-origin: top center;
+    transition: transform 0.6s cubic-bezier(.4,0,.2,1);
+  }
+  .envelope-wrap.open .envelope-flap {
+    transform: rotateX(150deg);
+  }
+  .envelope-glow {
+    position: absolute;
+    inset: -20px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--accent-warm-dim), transparent 70%);
+    opacity: 0;
+    transition: opacity 0.8s ease;
+  }
+  .envelope-wrap.open .envelope-glow { opacity: 1; }
+  .envelope-letter {
+    position: absolute;
+    left: 50%;
+    bottom: 8px;
+    width: 78%;
+    height: 44px;
+    background: var(--accent-warm);
+    border-radius: 4px;
+    transform: translate(-50%, 0);
+    opacity: 0;
+    transition: transform 0.6s cubic-bezier(.2,.8,.2,1) 0.25s, opacity 0.4s ease 0.25s;
+  }
+  .envelope-wrap.open .envelope-letter {
+    transform: translate(-50%, -58px);
+    opacity: 1;
+  }
+
+  h1.logo {
+    font-family: 'Shippori Mincho', serif;
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    margin: 0 0 10px;
+  }
+
+  p.lede {
+    color: var(--text-muted);
+    font-size: 14.5px;
+    line-height: 1.9;
+    margin: 0 0 36px;
+    max-width: 300px;
+  }
+
+  button {
+    font-family: 'Zen Maru Gothic', sans-serif;
+    border: none;
+    cursor: pointer;
+  }
+
+  .btn-primary {
+    background: var(--accent-warm);
+    color: #1F2444;
+    font-size: 16px;
+    font-weight: 700;
+    padding: 16px 34px;
+    border-radius: 999px;
+    box-shadow: 0 8px 24px rgba(242,166,90,0.25);
+    transition: transform 0.15s ease;
+  }
+  .btn-primary:active { transform: scale(0.97); }
+
+  .btn-ghost {
+    margin-top: 22px;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 13.5px;
+    padding: 8px;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  /* --- ローディング画面 --- */
+  .loading-ring {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    background: conic-gradient(var(--accent-warm) calc(var(--pct, 0) * 1%), var(--bg-panel) 0);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 24px;
+    transition: background 0.2s linear;
+  }
+  .loading-ring::after {
+    content: '';
+    width: 78px;
+    height: 78px;
+    border-radius: 50%;
+    background: var(--bg-deep);
+  }
+  .loading-num {
+    position: absolute;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+  }
+  .loading-label {
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+
+  /* --- メッセージ画面 --- */
+  .message-card {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-soft);
+    border-radius: 16px;
+    padding: 30px 26px;
+    margin-top: 4px;
+    width: 100%;
+  }
+  .message-text {
+    font-family: 'Shippori Mincho', serif;
+    font-size: 19px;
+    line-height: 1.85;
+    font-weight: 500;
+  }
+  .message-count {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--accent-warm);
+    font-weight: 500;
+  }
+  .message-tag {
+    display: inline-block;
+    margin-top: 20px;
+    font-size: 11.5px;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+  }
+
+  .footnote {
+    margin-top: 40px;
+    font-size: 11px;
+    color: var(--border-soft);
+  }
+</style>
+</head>
+<body>
+
+<div class="stage">
+
+  <!-- 1. ホーム画面 -->
+  <section class="screen active" id="screen-home">
+    <div class="envelope-wrap" id="homeEnvelope">
+      <div class="envelope-glow"></div>
+      <div class="envelope-body"></div>
+      <div class="envelope-letter"></div>
+      <div class="envelope-flap"></div>
+    </div>
+    <h1 class="logo">トドイタ</h1>
+    <p class="lede">
+      30秒だけ、広告を見てください。<br>
+      それだけで、ちゃんと届きます。<br>
+      「ありがとう」が。
+    </p>
+    <button class="btn-primary" onclick="startAd()">広告を見て受け取る</button>
+  </section>
+
+  <!-- 2. 広告視聴(仮タイマー)画面 -->
+  <section class="screen" id="screen-loading">
+    <div style="position:relative; display:flex; align-items:center; justify-content:center;">
+      <div class="loading-ring" id="loadingRing"></div>
+      <div class="loading-num" id="loadingNum">5</div>
+    </div>
+    <p class="loading-label">広告を再生しています…</p>
+  </section>
+
+  <!-- 3. メッセージ画面 -->
+  <section class="screen" id="screen-message">
+    <div class="envelope-wrap open" style="margin-bottom:20px;">
+      <div class="envelope-glow"></div>
+      <div class="envelope-body"></div>
+      <div class="envelope-letter"></div>
+      <div class="envelope-flap"></div>
+    </div>
+    <div class="message-card">
+      <div class="message-text" id="messageText"></div>
+      <div class="message-tag" id="messageTag"></div>
+    </div>
+    <button class="btn-ghost" onclick="goHome()">とじる</button>
+  </section>
+
+  <div class="footnote">todoita · v0 prototype</div>
+</div>
+
+<script>
+/* =========================================================
+   注意: このタイマー(5秒)は広告視聴の"仮の導線"です。
+   実際は30秒の動画リワード広告SDKのコールバックに置き換えます。
+   カウントは今のところ localStorage のみで、Supabase連携は未実装です。
+   ========================================================= */
+
+const AD_DURATION_SEC = 5; // 本番は30秒の広告SDKコールバックに置き換える
+
+const MESSAGES = {
+  A: [
+    n => `今日、あなたを含めて${n}人が\nこのボタンを押しました。\nひとりじゃないです。`,
+    n => `今、この瞬間にも\n${n}人が同じ画面を見ています。`,
+    n => `あなたのような人が、\n今日だけで${n}人います。`,
+    n => `${n}人目の「ありがとう」を、\nあなたが今つないでくれました。`,
+  ],
+  B: [
+    () => `正直に言うと、\nこれで今日ちょっとだけ\n救われました。ありがとう。`,
+    () => `誰かがこれを見てくれるだけで、\n続ける理由になります。`,
+    () => `今日も1つ、\nこの世界に意味のあることが\n起きました。`,
+    () => `こういう小さな「ありがとう」が、\n開発者にとっては大きな支えです。`,
+  ],
+  C: [
+    () => `あなたのこの1行動は、\nどこかで誰かの支えになっています。`,
+    () => `小さな行動が積み重なって、\n誰かの居場所を守っています。`,
+    () => `何かの役に立ちたいと思っただけで、\nもう十分役に立っています。`,
+    () => `今日ここに来てくれたこと自体が、\nもう意味のあることです。`,
+  ],
+};
+
+function pickWeightedAxis() {
+  const r = Math.random() * 100;
+  if (r < 70) return 'A';
+  if (r < 90) return 'C';
+  return 'B';
+}
+
+function getLastShown() {
+  return localStorage.getItem('todoita_last_shown') || '';
+}
+function setLastShown(id) {
+  localStorage.setItem('todoita_last_shown', id);
+}
+
+function getCount() {
+  let n = localStorage.getItem('todoita_count');
+  if (n === null) {
+    n = 80 + Math.floor(Math.random() * 70); // 初回のみ、それらしい基準値を設定
+  } else {
+    n = parseInt(n, 10);
+  }
+  n += 1;
+  localStorage.setItem('todoita_count', n);
+  return n;
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function startAd() {
+  showScreen('screen-loading');
+  let elapsed = 0;
+  const ring = document.getElementById('loadingRing');
+  const num = document.getElementById('loadingNum');
+  const timer = setInterval(() => {
+    elapsed += 1;
+    const remain = AD_DURATION_SEC - elapsed;
+    const pct = (elapsed / AD_DURATION_SEC) * 100;
+    ring.style.setProperty('--pct', pct);
+    num.textContent = Math.max(remain, 0);
+    if (elapsed >= AD_DURATION_SEC) {
+      clearInterval(timer);
+      showMessage();
+    }
+  }, 1000);
+}
+
+function showMessage() {
+  const n = getCount();
+  let axis = pickWeightedAxis();
+  let pool = MESSAGES[axis];
+  let idx = Math.floor(Math.random() * pool.length);
+  let id = axis + idx;
+
+  // 直前と同じ文言は避ける
+  let tries = 0;
+  while (id === getLastShown() && tries < 5) {
+    idx = Math.floor(Math.random() * pool.length);
+    id = axis + idx;
+    tries++;
+  }
+  setLastShown(id);
+
+  const text = pool[idx](n);
+  document.getElementById('messageText').textContent = text;
+  document.getElementById('messageTag').textContent =
+    axis === 'A' ? `累計 ${n} 件の「ありがとう」` : axis === 'B' ? '開発者より' : '';
+
+  showScreen('screen-message');
+}
+
+function goHome() {
+  showScreen('screen-home');
+}
+</script>
+
+</body>
+</html>
