@@ -300,7 +300,14 @@ const AD_DURATION_SEC = 5; // 本番は30秒の広告SDKコールバックに置
 
 const SUPABASE_URL = 'https://dbtbrdebjeyrstabeboy.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_nVLFqGCv6PZ5bv3ok9Q5cA_OE9x1sHd';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// Supabase読み込みに失敗しても(CDNブロック等)、ページ全体が止まらないよう防御的に初期化する
+let supabase = null;
+try {
+  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+} catch (e) {
+  console.warn('Supabaseクライアントの初期化に失敗しました。ローカル動作にフォールバックします', e);
+}
 
 const MESSAGES = {
   A: [
@@ -371,6 +378,7 @@ function setLastShown(id) {
 // 匿名認証をこの端末のセッションで一度だけ確立する
 let authReady = null;
 function ensureAuth() {
+  if (!supabase) return Promise.reject(new Error('supabase unavailable'));
   if (!authReady) {
     authReady = (async () => {
       const { data: { session } } = await supabase.auth.getSession();
