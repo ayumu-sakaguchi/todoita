@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Maru+Gothic:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
     --bg-deep: #1F2444;
@@ -178,6 +179,53 @@
     letter-spacing: 0.05em;
   }
 
+  /* --- 一言シェア(選択式) --- */
+  .phrase-section {
+    width: 100%;
+    margin-top: 18px;
+  }
+  .phrase-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+  }
+  .phrase-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+  }
+  .phrase-btn {
+    background: var(--bg-panel-soft);
+    border: 1px solid var(--border-soft);
+    color: var(--text-primary);
+    font-size: 13px;
+    padding: 9px 14px;
+    border-radius: 999px;
+    transition: opacity 0.2s ease, border-color 0.2s ease;
+  }
+  .phrase-btn:active { transform: scale(0.97); }
+  .phrase-btn.want-help {
+    border-color: var(--accent-warm);
+    color: var(--accent-warm);
+  }
+  .phrase-list.locked .phrase-btn {
+    opacity: 0.35;
+    pointer-events: none;
+  }
+  .phrase-list.locked .phrase-btn.selected {
+    opacity: 1;
+    background: var(--accent-warm);
+    color: #1F2444;
+    border-color: var(--accent-warm);
+  }
+  .phrase-feedback {
+    margin-top: 14px;
+    font-size: 13px;
+    color: var(--text-muted);
+    min-height: 18px;
+  }
+
   .footnote {
     margin-top: 40px;
     font-size: 11px;
@@ -229,6 +277,13 @@
       <div class="message-text" id="messageText"></div>
       <div class="message-tag" id="messageTag"></div>
     </div>
+
+    <div class="phrase-section">
+      <div class="phrase-label">今日は、どうでしたか(よければ)</div>
+      <div class="phrase-list" id="phraseList"></div>
+      <div class="phrase-feedback" id="phraseFeedback"></div>
+    </div>
+
     <button class="btn-ghost" onclick="goHome()">とじる</button>
   </section>
 
@@ -239,10 +294,13 @@
 /* =========================================================
    注意: このタイマー(5秒)は広告視聴の"仮の導線"です。
    実際は30秒の動画リワード広告SDKのコールバックに置き換えます。
-   カウントは今のところ localStorage のみで、Supabase連携は未実装です。
    ========================================================= */
 
 const AD_DURATION_SEC = 5; // 本番は30秒の広告SDKコールバックに置き換える
+
+const SUPABASE_URL = 'https://dbtbrdebjeyrstabeboy.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_nVLFqGCv6PZ5bv3ok9Q5cA_OE9x1sHd';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const MESSAGES = {
   A: [
@@ -264,6 +322,19 @@ const MESSAGES = {
     () => `今日ここに来てくれたこと自体が、\nもう意味のあることです。`,
   ],
 };
+
+const PHRASES = [
+  { id: 'got_up',        label: '布団から、出られた' },
+  { id: 'made_it',       label: 'なんとか、1日終えられた' },
+  { id: 'ate',           label: 'ごはん、ちゃんと食べられた' },
+  { id: 'outside',       label: 'ちょっとだけ、外の空気を吸えた' },
+  { id: 'talked',        label: '誰かと、少し話せた' },
+  { id: 'hard_day',      label: 'ちょっと、しんどかったな' },
+  { id: 'cried',         label: '涙が、出た日だった' },
+  { id: 'showed_up',     label: '何もできなかったけど、来てみた' },
+  { id: 'want_to_help',  label: '少しだけ、誰かの役に立てていたら' },
+  { id: 'just_this',     label: '今日は、これだけ' },
+];
 
 function pickWeightedAxis() {
   const r = Math.random() * 100;
@@ -297,16 +368,52 @@ function setLastShown(id) {
   safeSet('todoita_last_shown', id);
 }
 
-function getCount() {
-  let n = safeGet('todoita_count');
-  if (n === null) {
-    n = 80 + Math.floor(Math.random() * 70); // 初回のみ、それらしい基準値を設定
-  } else {
-    n = parseInt(n, 10);
+// 匿名認証をこの端末のセッションで一度だけ確立する
+let authReady = null;
+function ensureAuth() {
+  if (!authReady) {
+    authReady = (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        const { error } = await supabase.auth.signInAnonymously();
+        if (error) throw error;
+      }
+    })();
   }
-  n += 1;
-  safeSet('todoita_count', n);
-  return n;
+  return authReady;
+}
+
+// ad_views に1件追加し、累計件数を数えて返す。
+// 失敗した場合(オフライン等)は、これまでのlocalStorage版と同じ挙動にフォールバックする
+async function recordViewAndGetCount() {
+  try {
+    await ensureAuth();
+    const { data: { user } } = await supabase.auth.getUser();
+    const { error: insertError } = await supabase.from('ad_views').insert({ user_id: user.id });
+    if (insertError) throw insertError;
+    const { count, error: countError } = await supabase
+      .from('ad_views')
+      .select('*', { count: 'exact', head: true });
+    if (countError) throw countError;
+    return count;
+  } catch (e) {
+    console.warn('Supabase連携に失敗、ローカルカウントにフォールバックします', e);
+    let n = safeGet('todoita_count');
+    n = n === null ? 80 + Math.floor(Math.random() * 70) : parseInt(n, 10);
+    n += 1;
+    safeSet('todoita_count', n);
+    return n;
+  }
+}
+
+async function recordShare(phraseId) {
+  try {
+    await ensureAuth();
+    const { data: { user } } = await supabase.auth.getUser();
+    await supabase.from('shares').insert({ user_id: user.id, phrase_id: phraseId });
+  } catch (e) {
+    console.warn('一言シェアの保存に失敗しました(表示上の体験には影響しません)', e);
+  }
 }
 
 function showScreen(id) {
@@ -332,8 +439,9 @@ function startAd() {
   }, 1000);
 }
 
-function showMessage() {
-  const n = getCount();
+async function showMessage() {
+  const n = await recordViewAndGetCount();
+
   let axis = pickWeightedAxis();
   let pool = MESSAGES[axis];
   let idx = Math.floor(Math.random() * pool.length);
@@ -353,12 +461,47 @@ function showMessage() {
   document.getElementById('messageTag').textContent =
     axis === 'A' ? `累計 ${n} 件の「ありがとう」` : axis === 'B' ? '開発者より' : '';
 
+  renderPhraseList();
   showScreen('screen-message');
+}
+
+function renderPhraseList() {
+  const list = document.getElementById('phraseList');
+  const feedback = document.getElementById('phraseFeedback');
+  list.classList.remove('locked');
+  feedback.textContent = '';
+  list.innerHTML = '';
+
+  PHRASES.forEach(p => {
+    const btn = document.createElement('button');
+    btn.className = 'phrase-btn' + (p.id === 'want_to_help' ? ' want-help' : '');
+    btn.textContent = p.label;
+    btn.dataset.id = p.id;
+    btn.onclick = () => selectPhrase(p, btn);
+    list.appendChild(btn);
+  });
+}
+
+function selectPhrase(phrase, btnEl) {
+  const list = document.getElementById('phraseList');
+  const feedback = document.getElementById('phraseFeedback');
+
+  list.classList.add('locked');
+  btnEl.classList.add('selected');
+
+  feedback.textContent = phrase.id === 'want_to_help'
+    ? 'まさに今、あなたのその気持ちが誰かに届きました。'
+    : '届きました。';
+
+  recordShare(phrase.id);
 }
 
 function goHome() {
   showScreen('screen-home');
 }
+
+// ページ読み込み時点で匿名認証を先読みしておく(広告視聴後の待ち時間を減らすため)
+ensureAuth().catch(e => console.warn('初回認証の先読みに失敗しました', e));
 </script>
 
 </body>
